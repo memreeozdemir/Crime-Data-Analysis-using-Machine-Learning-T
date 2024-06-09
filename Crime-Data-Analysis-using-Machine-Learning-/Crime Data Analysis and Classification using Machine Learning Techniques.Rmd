@@ -1,0 +1,414 @@
+---
+title: "data-science"
+output: html_document
+date: "2024-01-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+install.packages("car")
+
+```{r}
+library(car)
+
+
+```
+
+```{r}
+# Load your dataset
+data <- read.csv(".\\crime_data.csv")
+
+
+```
+
+
+```{r}
+head(data)
+
+#IDCol: ID column
+#Report.Number: Report number
+#Report.Date: Date of the report
+#Day.Occurred: Day of the week when the incident occurred
+#Day.Number: Numeric representation of the day when the incident occurred
+#Occur.Date: Date of the incident
+#Occur.Time: Time of the incident
+#Possible.Date: Possible date
+#Possible.Time: Possible time
+#Beat: Police beat
+#Zone: Zone number
+#Location: Location where the incident occurred
+#Apartment.Number: Apartment number
+#Crime.Type: Type of crime
+#NIBRS.Code: NIBRS code
+#Neighborhood: Neighborhood
+#NPU: NPU code
+#Longitude: Longitude coordinate
+#Latitude: Latitude coordinate
+#ObjectId: Object ID
+#x: X coordinate
+#y: Y coordinate
+#This dataset contains information about crime incidents. Each crime incident is represented as an observation, and various characteristics of these incidents are recorded using the 22 different variables.
+```
+
+
+#Certainly, this R code snippet creates a histogram using the hist function to visualize the distribution of crimes based on the "Beat" variable. 
+
+```{r pressure, echo=FALSE}
+hist(data$Beat, main = "Distribution of Crime by Beat", xlab = "Beat", col = "blue")
+```
+# Install and load necessary packages
+
+install.packages("ggplot2")
+install.packages("factoextra")
+install.packages("ROCR")
+install.packages("cluster")
+install.packages("caTools")
+install.packages("randomForest")
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("mice")
+
+
+
+
+```{r }
+library(caTools)
+library(ggplot2)
+library(factoextra)
+library(ROCR)
+library(cluster)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(mice)
+```
+
+# Select numeric variables for PCA
+
+```{r }
+numeric_vars <- sapply(data, is.numeric)
+data_numeric <- data[, numeric_vars]
+```
+## 4. Check your data for multicollinearity make your comments
+
+
+
+# Handling missing values
+
+```{r }
+if (any(is.na(data))) {
+  # Remove rows with missing values
+  data <- na.omit(data)
+}
+```
+
+
+# Subset to include only numeric columns
+
+```{r }
+numeric_data <- data[, sapply(data, is.numeric)]
+
+```
+
+# Calculate correlation matrix for numeric variables
+
+```{r }
+cor_matrix <- cor(numeric_data)
+
+```
+
+# Display the correlation matrix
+
+```{r }
+knitr::kable(cor_matrix, caption = "Correlation Matrix")
+```
+
+# Select numeric variables for PCA
+
+```{r }
+numeric_vars <- sapply(data, is.numeric)
+data_numeric <- data[, numeric_vars]
+```
+#5. Apply PCA
+
+```{r }
+pca_result <- prcomp(data_numeric, scale. = TRUE)
+```
+
+# Summary of PCA
+
+```{r}
+summary(pca_result)
+```
+# Visualization of PCA
+
+fviz_pca_var(pca_result, col.var = "contrib", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+
+
+# Biplot (for visualization of observations and variables)s
+
+fviz_pca_biplot(pca_result, col.ind = "cos2", col.var = "contrib")
+
+
+
+#7. Select numeric variables for clustering (example: Longitude and Latitude)
+
+```{r}
+cluster_data <- data[, c("Beat", "Zone")]
+```
+
+# Standardize the data
+
+```{r}
+scaled_data <- scale(cluster_data)
+head(scaled_data)
+```
+
+# Apply K-Means clustering (example: 3 clusters)
+
+
+
+# Visualization of K-Means Clustering
+
+```{r}
+kmeans_result <- kmeans(scaled_data, centers = 3)
+fviz_cluster(kmeans_result, data = scaled_data, geom = "point", stand = FALSE, main = "K-Means Clustering")
+
+```
+# Apply Hierarchical clustering
+
+```{r}
+subset_data <- scaled_data[1:1000, ]
+hc_result <- hclust(dist(subset_data))
+
+
+```
+
+# Cut the dendrogram to get clusters (example: 3 clusters)
+
+```{r}
+hierarchical_clusters <- cutree(hc_result, k = 3)
+
+
+```
+# Visualization of Hierarchical Clustering
+
+```{r}
+fviz_dend(hc_result, k = 3, main = "Hierarchical Clustering Dendrogram")
+
+
+```
+# Plot the data points with colors representing clusters
+
+
+```{r}
+plot(cluster_data, col = hierarchical_clusters, main = "Hierarchical Clustering")
+
+
+```
+
+```{r}
+data$Zone <- as.factor(data$Zone)
+
+
+```
+# Split the data into training and testing sets
+```{r}
+set.seed(123)
+split <- sample.split(data$Zone, SplitRatio = 0.7)
+train_data <- subset(data, split == TRUE)
+test_data <- subset(data, split == FALSE)
+
+
+```
+
+
+
+
+# Apply Logistic Regression
+```{r}
+log_reg_model_zone <- glm(Zone ~ Beat, data = train_data, family = "binomial")
+
+
+
+```
+
+# b. Visualization of Regression
+# For simplicity, you can visualize the relationship between two variables and the predicted probabilities.
+# Let's say, visualize the relationship between 'Beat' and the predicted probabilities.
+```{r}
+ggplot(train_data, aes(x = Beat, y = Zone)) +
+  geom_point(aes(color = Zone)) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +
+  labs(title = "Logistic Regression - Relationship between Beat and Zone",
+       x = "Beat",
+       y = "Predicted Probabilities")
+
+
+```
+
+# c. Performance Scores
+# Use the test data to evaluate the model
+```{r}
+predicted_probs_zone <- predict(log_reg_model_zone, newdata = test_data, type = "response")
+predicted_classes_zone <- ifelse(predicted_probs_zone > 0.5, 1, 0)
+
+
+```
+
+
+#Confusion Matrix
+
+```{r}
+conf_matrix_zone <- table(test_data$Zone, predicted_classes_zone)
+conf_matrix_zone
+
+```
+
+
+# Calculate accuracy
+```{r}
+# Accuracy
+accuracy_zone <- sum(diag(conf_matrix_zone)) / sum(conf_matrix_zone)
+accuracy_zone
+
+
+
+```
+
+# Build the decision tree model
+```{r}
+decision_tree_model <- rpart(Zone ~ Beat, data = train_data, method = "class")
+```
+
+# Visualize the decision tree
+```{r}
+
+rpart.plot(decision_tree_model, box.palette = "auto", branch.lty = 3)
+
+```
+
+# Build the random forest model
+```{r}
+random_forest_model <- randomForest(Zone ~ Beat, data = train_data)
+```
+# Print a summary of the random forest model
+```{r}
+
+print(random_forest_model)
+
+```
+
+# Decision Tree Predictions
+```{r}
+predicted_classes_tree <- predict(decision_tree_model, newdata = test_data, type = "class")
+```
+# Random Forest Predictions
+```{r}
+
+predicted_classes_forest <- predict(random_forest_model, newdata = test_data)
+```
+# Confusion Matrix for Decision Tree
+```{r}
+
+conf_matrix_tree <- table(test_data$Zone, predicted_classes_tree)
+cat("Confusion Matrix for Decision Tree:\n")
+conf_matrix_tree
+
+```
+# Confusion Matrix for Random Forest
+```{r}
+
+conf_matrix_forest <- table(test_data$Zone, predicted_classes_forest)
+cat("\nConfusion Matrix for Random Forest:\n")
+conf_matrix_forest
+```
+# Accuracy for Decision Tree
+```{r}
+
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+```
+# Accuracy for Random Forest
+```{r}
+
+accuracy_forest <- sum(diag(conf_matrix_forest)) / sum(conf_matrix_forest)
+
+```
+
+```{r}
+cat("\nAccuracy for Decision Tree:", accuracy_tree)
+cat("\nAccuracy for Random Forest:", accuracy_forest)
+```
+
+```{r}
+
+if (accuracy_tree > accuracy_forest) {
+  cat("\nDecision Tree outperforms Random Forest.")
+  final_model <- decision_tree_model
+} else {
+  cat("\nRandom Forest outperforms Decision Tree.")
+  final_model <- random_forest_model
+}
+```
+
+
+# Select numeric variables for PCA
+```{r}
+numeric_vars <- sapply(data, is.numeric)
+data_numeric <- data[, numeric_vars]
+```
+
+```{r}
+# Apply PCA
+pca_result <- prcomp(data_numeric, scale. = TRUE)
+```
+
+```{r}
+# Use principal components as predictors for logistic regression
+pca_data <- as.data.frame(predict(pca_result))
+```
+
+```{r}
+# Combine the principal components with the response variable
+pca_data$Zone <- as.factor(data$Zone)
+```
+
+
+```{r}
+# Split the data into training and testing sets
+set.seed(123)
+split_pca <- sample.split(pca_data$Zone, SplitRatio = 0.7)
+train_data_pca <- subset(pca_data, split_pca == TRUE)
+test_data_pca <- subset(pca_data, split_pca == FALSE)
+```
+
+```{r}
+# Apply Logistic Regression on Principal Components
+log_reg_model_pca <- glm(Zone ~ ., data = train_data_pca, family = "binomial")
+```
+
+
+```{r}
+# Predict using the test set
+predicted_probs_pca <- predict(log_reg_model_pca, newdata = test_data_pca, type = "response")
+predicted_classes_pca <- ifelse(predicted_probs_pca > 0.5, 1, 0)
+```
+
+```{r}
+# Confusion Matrix for Logistic Regression on Principal Components
+conf_matrix_pca <- table(test_data_pca$Zone, predicted_classes_pca)
+cat("Confusion Matrix for Logistic Regression on Principal Components:\n")
+conf_matrix_pca
+```
+
+```{r}
+# Calculate accuracy for Logistic Regression on Principal Components
+accuracy_pca <- sum(diag(conf_matrix_pca)) / sum(conf_matrix_pca)
+cat("\nAccuracy for Logistic Regression on Principal Components:", accuracy_pca)
+
+```
